@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Glow Backdrop -->
+    <path
+        android:fillColor="#3300D4B2"
+        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0" />
+
+    <!-- Open Medical Book Left Page -->
+    <path
+        android:fillColor="#E2F1F8"
+        android:pathData="M52,38 C43,34 32,35 26,38 C25,38.6 24,39.6 24,41 L24,68 C30,65 41,64 52,68 Z" />
+
+    <!-- Open Medical Book Right Page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,38 C65,34 76,35 82,38 C83,38.6 84,39.6 84,41 L84,68 C78,65 67,64 56,68 Z" />
+
+    <!-- Book Spine Divider -->
+    <path
+        android:fillColor="#0288D1"
+        android:pathData="M53,37 L55,37 L55,70 L53,70 Z" />
+
+    <!-- Medical Cross on Left Page -->
+    <path
+        android:fillColor="#00B4D8"
+        android:pathData="M37,47 h6 v2 h-6 v6 h-2 v-6 h-6 v-2 h6 v-6 h2 z" />
+
+    <!-- AI Sparkle / Stethoscope Node on Right Page -->
+    <path
+        android:fillColor="#0077B6"
+        android:pathData="M64,48 L67,42 L70,48 L76,51 L70,54 L67,60 L64,54 L58,51 Z" />
+
+    <!-- Golden Quill Pen writing AI notes -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M78,28 C74,24 66,28 62,34 L58,40 L62,44 L68,38 C74,32 82,32 78,28 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,40 L54,47 L61,45 Z" />
+</vector>
+

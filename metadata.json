@@ -1,0 +1,7 @@
+{
+  "name": "DocuMed Studio",
+  "description": "AI-powered document and medical book creation studio for doctors, researchers, professors, and students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
