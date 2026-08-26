@@ -20,16 +20,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -44,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,8 +67,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.DocumentPermissionLevel
 import com.example.data.model.MedicalDocument
+import com.example.data.model.UserRole
 import com.example.ui.components.CreateDocumentDialog
+import com.example.ui.dialogs.AdminUserManagementDialog
+import com.example.ui.dialogs.TemplateLibraryDialog
+import com.example.ui.dialogs.UserLoginSwitcherDialog
+import com.example.ui.dialogs.UserRoleBadge
 import com.example.ui.theme.ClinicalAmber
 import com.example.ui.theme.ClinicalGreen
 import com.example.ui.theme.MedicalBluePrimary
@@ -78,7 +93,15 @@ fun DocumentLibraryScreen(
     val selectedSpecialty by viewModel.selectedSpecialty.collectAsState()
     val selectedDocType by viewModel.selectedDocType.collectAsState()
 
+    // Multi-User and Collaboration State
+    val currentUser by viewModel.currentUser.collectAsState()
+    val allUsers by viewModel.users.collectAsState()
+
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
+    var showUserLoginDialog by remember { mutableStateOf(false) }
+    var showAdminManagementDialog by remember { mutableStateOf(false) }
+    var restrictedDocTitle by remember { mutableStateOf<String?>(null) }
 
     val specialties = listOf("All", "Orthopedics", "Cardiology", "Neurology", "Surgery", "Pediatrics", "Internal Medicine", "Oncology", "Pathology")
     val docTypes = listOf("All", "Textbook Chapter", "Clinical Protocol", "Case Report", "Lecture Note", "Question Bank", "OSCE Guide")
@@ -91,7 +114,7 @@ fun DocumentLibraryScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Header Banner
+            // Header Banner with Multi-User Pill & Navigation Actions
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -99,12 +122,12 @@ fun DocumentLibraryScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(44.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(MedicalBluePrimary),
                         contentAlignment = Alignment.Center
@@ -113,10 +136,10 @@ fun DocumentLibraryScreen(
                             imageVector = Icons.Default.MenuBook,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "DocuMed Medical Library",
@@ -124,9 +147,72 @@ fun DocumentLibraryScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "${documents.size} Clinical Publications & Study Modules",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "${documents.size} Clinical Publications · Multi-User Sync Active",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    // Active User Profile Switcher Chip
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(currentUser.avatarColorHex).copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(currentUser.avatarColorHex).copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { showUserLoginDialog = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(currentUser.avatarColorHex)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = currentUser.avatarInitials,
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = currentUser.name.split(" ").firstOrNull() ?: currentUser.name,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(currentUser.avatarColorHex)
+                            )
+                        }
+                    }
+
+                    if (currentUser.role == UserRole.ADMIN) {
+                        IconButton(onClick = { showAdminManagementDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = "Admin Roles & Permissions",
+                                tint = Color(0xFF7C3AED)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = { showTemplateDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = "Medical Templates",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.navigateTo(AppNavTab.SETTINGS) }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -231,9 +317,18 @@ fun DocumentLibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(documents, key = { it.id }) { doc ->
+                        val permission = currentUser.getEffectivePermission(doc.id)
                         DocumentItemCard(
                             document = doc,
-                            onSelect = { viewModel.selectDocument(doc) },
+                            permission = permission,
+                            isAdmin = currentUser.role == UserRole.ADMIN,
+                            onSelect = {
+                                if (permission == DocumentPermissionLevel.NONE && currentUser.role != UserRole.ADMIN) {
+                                    restrictedDocTitle = doc.title
+                                } else {
+                                    viewModel.selectDocument(doc)
+                                }
+                            },
                             onToggleFavorite = { viewModel.toggleFavorite(doc) },
                             onDuplicate = { viewModel.duplicateDocument(doc) },
                             onDelete = { viewModel.deleteDocument(doc) }
@@ -246,7 +341,7 @@ fun DocumentLibraryScreen(
             }
         }
 
-        // FAB to create document
+        // FAB to create document (only if not strictly view-only without edit permissions)
         FloatingActionButton(
             onClick = { showCreateDialog = true },
             containerColor = MedicalBluePrimary,
@@ -257,6 +352,75 @@ fun DocumentLibraryScreen(
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = "Create Document")
         }
+    }
+
+    if (restrictedDocTitle != null) {
+        AlertDialog(
+            onDismissRequest = { restrictedDocTitle = null },
+            icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFDC2626)) },
+            title = { Text("Chapter Access Restricted") },
+            text = {
+                Text(
+                    "You are currently logged in as '${currentUser.name}' (${currentUser.role.badgeLabel}).\n\n" +
+                    "Your role or account permission does not have read access for '$restrictedDocTitle'.\n\n" +
+                    "Switch to an Administrator account or request permissions to review this document."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    restrictedDocTitle = null
+                    showUserLoginDialog = true
+                }) {
+                    Text("Switch User")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { restrictedDocTitle = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showUserLoginDialog) {
+        UserLoginSwitcherDialog(
+            users = allUsers,
+            currentUser = currentUser,
+            onDismiss = { showUserLoginDialog = false },
+            onSelectUser = { userId ->
+                viewModel.switchUser(userId)
+            },
+            onOpenAdminPanel = {
+                showAdminManagementDialog = true
+            },
+            onCreateUser = { name, email, role, specialty, title ->
+                viewModel.createNewUser(name, email, role, specialty, title)
+            }
+        )
+    }
+
+    if (showAdminManagementDialog) {
+        AdminUserManagementDialog(
+            users = allUsers,
+            documents = documents,
+            currentUser = currentUser,
+            onDismiss = { showAdminManagementDialog = false },
+            onUpdateUserRole = { userId, newRole ->
+                viewModel.updateUserRole(userId, newRole)
+            },
+            onDeleteUser = { userId ->
+                viewModel.deleteUser(userId)
+            },
+            onSetDocumentPermission = { userId, docId, permission ->
+                viewModel.setDocumentPermission(userId, docId, permission)
+            },
+            onSetBatchPermissions = { userId, docIds, permission ->
+                viewModel.setBatchDocumentPermissions(userId, docIds, permission)
+            },
+            onCreateUser = { name, email, role, specialty, title ->
+                viewModel.createNewUser(name, email, role, specialty, title)
+            }
+        )
     }
 
     if (showCreateDialog) {
@@ -272,11 +436,25 @@ fun DocumentLibraryScreen(
             }
         )
     }
+
+    if (showTemplateDialog) {
+        TemplateLibraryDialog(
+            onDismiss = { showTemplateDialog = false },
+            onSelectTemplateForCurrentDoc = { template ->
+                viewModel.createDocumentFromTemplate(template)
+            },
+            onCreateNewDocFromTemplate = { template ->
+                viewModel.createDocumentFromTemplate(template)
+            }
+        )
+    }
 }
 
 @Composable
 fun DocumentItemCard(
     document: MedicalDocument,
+    permission: DocumentPermissionLevel = DocumentPermissionLevel.FULL,
+    isAdmin: Boolean = false,
     onSelect: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDuplicate: () -> Unit,
@@ -291,7 +469,11 @@ fun DocumentItemCard(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (permission == DocumentPermissionLevel.NONE && !isAdmin) Color(0xFFDC2626).copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -299,8 +481,11 @@ fun DocumentItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Specialty and Type Badges
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Specialty, Type, and Permission Badges
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = MedicalBluePrimary.copy(alpha = 0.12f)
@@ -323,6 +508,45 @@ fun DocumentItemCard(
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
+                    }
+
+                    // Permission badge if view-only or restricted
+                    if (permission == DocumentPermissionLevel.VIEW && !isAdmin) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = ClinicalAmber.copy(alpha = 0.15f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Visibility, contentDescription = null, tint = ClinicalAmber, modifier = Modifier.size(10.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Reviewer",
+                                    color = ClinicalAmber,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    } else if (permission == DocumentPermissionLevel.NONE && !isAdmin) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFDC2626).copy(alpha = 0.15f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(10.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Restricted",
+                                    color = Color(0xFFDC2626),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -352,14 +576,16 @@ fun DocumentItemCard(
                                 },
                                 leadingIcon = { Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null) }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onDelete()
-                                },
-                                leadingIcon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
-                            )
+                            if (isAdmin || permission == DocumentPermissionLevel.FULL) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onDelete()
+                                    },
+                                    leadingIcon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                                )
+                            }
                         }
                     }
                 }
@@ -409,3 +635,4 @@ fun DocumentItemCard(
         }
     }
 }
+

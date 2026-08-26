@@ -106,5 +106,6 @@ data class FlashcardItem(
     val front: String,
     val back: String,
     val category: String,
+    val highYieldPearl: String = "",
     val isMastered: Boolean = false
 )

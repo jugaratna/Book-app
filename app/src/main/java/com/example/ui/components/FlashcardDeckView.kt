@@ -60,6 +60,7 @@ import com.example.ui.theme.MedicalTealPrimary
 fun FlashcardDeckView(
     flashcards: List<FlashcardItem>,
     modifier: Modifier = Modifier,
+    onExportToAnki: (() -> Unit)? = null,
     onClose: () -> Unit = {}
 ) {
     if (flashcards.isEmpty()) {
@@ -293,6 +294,19 @@ fun FlashcardDeckView(
                 enabled = currentIndex < flashcards.size - 1
             ) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Card")
+            }
+        }
+
+        if (onExportToAnki != null) {
+            Spacer(modifier = Modifier.height(14.dp))
+            androidx.compose.material3.OutlinedButton(
+                onClick = onExportToAnki,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MedicalBluePrimary)
+            ) {
+                Icon(imageVector = Icons.Default.Psychology, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Export Deck to Anki / AnkiDroid (.txt / .csv)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

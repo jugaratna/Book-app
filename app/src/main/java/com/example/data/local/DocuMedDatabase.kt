@@ -13,14 +13,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [MedicalDocument::class, SourceMaterial::class, DocumentVersion::class],
-    version = 1,
+    entities = [MedicalDocument::class, SourceMaterial::class, DocumentVersion::class, com.example.data.model.SavedFile::class],
+    version = 2,
     exportSchema = false
 )
 abstract class DocuMedDatabase : RoomDatabase() {
     abstract fun documentDao(): DocumentDao
     abstract fun sourceMaterialDao(): SourceMaterialDao
     abstract fun versionDao(): VersionDao
+    abstract fun savedFileDao(): SavedFileDao
 
     companion object {
         @Volatile
@@ -33,6 +34,7 @@ abstract class DocuMedDatabase : RoomDatabase() {
                     DocuMedDatabase::class.java,
                     "documed_studio_database"
                 )
+                    .fallbackToDestructiveMigration()
                     .addCallback(DocuMedDatabaseCallback(scope))
                     .build()
                 INSTANCE = instance
@@ -48,7 +50,12 @@ abstract class DocuMedDatabase : RoomDatabase() {
             super.onCreate(db)
             INSTANCE?.let { database ->
                 scope.launch(Dispatchers.IO) {
-                    populateInitialData(database.documentDao(), database.sourceMaterialDao(), database.versionDao())
+                    populateInitialData(
+                        database.documentDao(),
+                        database.sourceMaterialDao(),
+                        database.versionDao(),
+                        database.savedFileDao()
+                    )
                 }
             }
         }
@@ -58,7 +65,8 @@ abstract class DocuMedDatabase : RoomDatabase() {
 suspend fun populateInitialData(
     documentDao: DocumentDao,
     sourceMaterialDao: SourceMaterialDao,
-    versionDao: VersionDao
+    versionDao: VersionDao,
+    savedFileDao: SavedFileDao? = null
 ) {
     // 1. Preloaded Medical Textbook Chapter: Fracture Neck of Femur
     val doc1Content = """
@@ -207,4 +215,79 @@ This clinical protocol delineates emergency triage, pharmacotherapy, and reperfu
             fileSize = "1.1 MB"
         )
     )
+
+    // Preloaded Saved Files (PPT, PDF, Word)
+    savedFileDao?.let { dao ->
+        val samplePptSlidesJson = """
+        [
+            {
+                "num": 1,
+                "title": "Fracture Neck of Femur: Clinical Management",
+                "subtitle": "Orthopedic Grand Rounds & Evidence Review",
+                "bullets": ["High-energy trauma in young patients vs. low-energy falls in osteoporotic elderly", "Avascular necrosis (AVN) risk directly correlates with vascular disruption", "Emergency anatomical reduction and fixation indicated within 24 hours"],
+                "pearl": "Medial femoral circumflex artery supplies >80% of femoral head blood flow.",
+                "warning": "Surgical delay >48 hours doubles 30-day perioperative mortality.",
+                "visual": "AP Hip X-ray showing trabecular angle displacement (Garden III)",
+                "notes": "Introduce the demographic burden and emphasize the urgency of orthogeriatric triage."
+            },
+            {
+                "num": 2,
+                "title": "Garden Classification & Treatment Algorithm",
+                "subtitle": "Stage I to IV Radiographic Evaluation",
+                "bullets": ["Garden I: Incomplete/impacted valgus fracture", "Garden II: Complete non-displaced fracture", "Garden III: Complete partially displaced with varus tilt", "Garden IV: Complete fully displaced with loss of trabecular continuity"],
+                "pearl": "Garden III and IV in patients >65 years require arthroplasty rather than fixation.",
+                "warning": "Watch for subcapital vs. basicervical fracture lines.",
+                "visual": "Garden classification anatomical 4-panel illustration",
+                "notes": "Ask residents to identify the alignment of the superior femoral neck cortex."
+            },
+            {
+                "num": 3,
+                "title": "Surgical Intervention: THA vs. Hemiarthroplasty",
+                "subtitle": "Evidence-Based Implant Selection",
+                "bullets": ["Total Hip Arthroplasty (THA): Active, independent ambulator, intact cognitive status", "Bipolar Hemiarthroplasty: Lower baseline mobility, high surgical risk", "Cannulated Screw Fixation: Reserved for non-displaced or young biological age"],
+                "pearl": "THA provides superior long-term Harris Hip Scores and lower re-operation rates.",
+                "warning": "Cementation must follow modern vacuum cementing techniques to avoid BCIS.",
+                "visual": "Postoperative AP Radiographs comparing THA vs. Bipolar Hemi",
+                "notes": "Review NICE guideline recommendations on cement usage in geriatric hip fractures."
+            }
+        ]
+        """.trimIndent()
+
+        dao.insertSavedFile(
+            com.example.data.model.SavedFile(
+                title = "Fracture Neck of Femur - Master Clinical Deck",
+                fileType = "PPT",
+                description = "3-Slide Clinical Presentation Deck with clinical pearls, speaker notes & diagrams.",
+                content = doc1Content,
+                slidesJson = samplePptSlidesJson,
+                fileSize = "1.8 MB",
+                documentId = doc1Id,
+                driveLink = "https://drive.google.com/drive/my-drive"
+            )
+        )
+
+        dao.insertSavedFile(
+            com.example.data.model.SavedFile(
+                title = "Fracture Neck of Femur - Comprehensive Textbook Chapter",
+                fileType = "PDF",
+                description = "Full publication-ready A4 medical chapter with Garden classifications & surgical algorithm.",
+                content = doc1Content,
+                fileSize = "2.4 MB",
+                documentId = doc1Id,
+                driveLink = "https://drive.google.com/drive/my-drive"
+            )
+        )
+
+        dao.insertSavedFile(
+            com.example.data.model.SavedFile(
+                title = "STEMI Emergency Reperfusion & Pharmacotherapy Protocol",
+                fileType = "DOCX",
+                description = "Clinical pathway document formatted for Word processing with emergency dosage tables.",
+                content = doc2Content,
+                fileSize = "1.1 MB",
+                documentId = doc2Id,
+                driveLink = "https://drive.google.com/drive/my-drive"
+            )
+        )
+    }
 }

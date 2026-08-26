@@ -25,19 +25,30 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Timeline
+import com.example.ui.dialogs.ClinicalCalculatorsDialog
+import com.example.ui.dialogs.DrugFormularyDialog
+import com.example.ui.dialogs.MedicalImageAnnotationDialog
+import com.example.ui.dialogs.PatientLeafletDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -53,6 +64,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -69,15 +81,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.export.DocumentExportHelper
+import com.example.data.model.MedicalPresentation
 import com.example.ui.components.FlashcardDeckView
 import com.example.ui.components.FlowchartVisualizer
 import com.example.ui.components.ImageDiagnosticDialog
 import com.example.ui.components.McqPracticeView
 import com.example.ui.components.MedicalTableView
 import com.example.ui.components.OsceStationView
+import com.example.ui.components.PresentationViewDialog
 import com.example.ui.theme.ClinicalAmber
 import com.example.ui.theme.ClinicalGreen
 import com.example.ui.theme.MedicalBluePrimary
@@ -105,14 +121,30 @@ fun AiStudioScreen(
     val generatedTable by viewModel.generatedTable.collectAsState()
     val generatedFlowchart by viewModel.generatedFlowchart.collectAsState()
     val generatedImageAnalysis by viewModel.generatedImageAnalysis.collectAsState()
+    val generatedPresentation by viewModel.generatedPresentation.collectAsState()
+    val generatedPatientLeaflet by viewModel.generatedPatientLeaflet.collectAsState()
+
+    var showPresentationDialog by remember { mutableStateOf(false) }
+    var showCalculatorsDialog by remember { mutableStateOf(false) }
+    var showDrugFormularyDialog by remember { mutableStateOf(false) }
+    var showPatientLeafletDialog by remember { mutableStateOf(false) }
+    var showImageAnnotationDialog by remember { mutableStateOf(false) }
+
+    val selectedAiEngine by viewModel.selectedAiEngine.collectAsState()
+    val context = LocalContext.current
 
     val studioTabs = listOf(
         "Chapter Builder",
+        "PowerPoint Deck",
+        "Calculators & Scores",
+        "Drug Formulary",
+        "Patient Leaflets",
+        "Radiology Canvas",
         "Summaries",
         "MCQ Bank",
         "Viva & Oral",
         "OSCE Station",
-        "Flashcards",
+        "Flashcards (Anki)",
         "Flowcharts",
         "Tables",
         "Image & Scan"
@@ -171,6 +203,15 @@ fun AiStudioScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // AI Engine Selector Banner
+                com.example.ui.components.AiEngineSelector(
+                    selectedEngine = selectedAiEngine,
+                    onEngineSelected = { viewModel.setSelectedAiEngine(it) },
+                    label = "Active AI Generation Engine"
+                )
+
                 // AI Progress Bar
                 if (isAiGenerating) {
                     Spacer(modifier = Modifier.height(10.dp))
@@ -217,32 +258,390 @@ fun AiStudioScreen(
         ) {
             when (selectedStudioTab) {
                 0 -> ChapterBuilderTab(viewModel)
-                1 -> SummariesTab(viewModel, generatedSummary)
-                2 -> McqBankTab(viewModel, generatedMCQs)
-                3 -> VivaTab(viewModel, generatedViva)
-                4 -> OsceTab(viewModel, generatedOSCE)
-                5 -> FlashcardsTab(viewModel, generatedFlashcards)
-                6 -> FlowchartsTab(viewModel, generatedFlowchart)
-                7 -> TablesTab(viewModel, generatedTable)
-                8 -> ImageScanTab(viewModel, isAiGenerating, generatedImageAnalysis)
+                1 -> PowerPointDeckTab(viewModel, generatedPresentation, isAiGenerating) {
+                    showPresentationDialog = true
+                }
+                2 -> CalculatorsTab(viewModel) { showCalculatorsDialog = true }
+                3 -> DrugFormularyTab(viewModel) { showDrugFormularyDialog = true }
+                4 -> PatientLeafletsTab(viewModel, generatedPatientLeaflet, isAiGenerating) { showPatientLeafletDialog = true }
+                5 -> RadiologyCanvasTab(viewModel) { showImageAnnotationDialog = true }
+                6 -> SummariesTab(viewModel, generatedSummary)
+                7 -> McqBankTab(viewModel, generatedMCQs)
+                8 -> VivaTab(viewModel, generatedViva)
+                9 -> OsceTab(viewModel, generatedOSCE)
+                10 -> FlashcardsTab(viewModel, generatedFlashcards)
+                11 -> FlowchartsTab(viewModel, generatedFlowchart)
+                12 -> TablesTab(viewModel, generatedTable)
+                13 -> ImageScanTab(viewModel, isAiGenerating, generatedImageAnalysis)
+            }
+        }
+    }
+
+    if (showPresentationDialog) {
+        PresentationViewDialog(
+            presentation = generatedPresentation,
+            isGenerating = isAiGenerating,
+            onDismiss = { showPresentationDialog = false },
+            onRegenerate = { viewModel.generatePowerPointPresentation() }
+        )
+    }
+
+    if (showCalculatorsDialog) {
+        ClinicalCalculatorsDialog(
+            onDismiss = { showCalculatorsDialog = false },
+            onInsertCalculation = { result ->
+                viewModel.insertCalculationIntoEditor(result)
+                showCalculatorsDialog = false
+            }
+        )
+    }
+
+    if (showDrugFormularyDialog) {
+        DrugFormularyDialog(
+            repository = viewModel.drugFormularyRepository,
+            onDismiss = { showDrugFormularyDialog = false },
+            onInsertMonograph = { drug ->
+                viewModel.insertDrugMonographIntoEditor(drug)
+                showDrugFormularyDialog = false
+            },
+            onInsertInteractionReport = { interactions, names ->
+                viewModel.insertInteractionReportIntoEditor(interactions, names)
+                showDrugFormularyDialog = false
+            }
+        )
+    }
+
+    if (showPatientLeafletDialog) {
+        val currentContent = viewModel.editorContent.collectAsState().value
+        PatientLeafletDialog(
+            initialContent = currentContent,
+            generatedLeaflet = generatedPatientLeaflet,
+            isGenerating = isAiGenerating,
+            onDismiss = { showPatientLeafletDialog = false },
+            onGenerate = { text, lang, lvl ->
+                viewModel.generatePatientLeafletWithAi(text, lang, lvl)
+            },
+            onInsertLeaflet = { markdown ->
+                viewModel.appendContentToEditor(markdown)
+                showPatientLeafletDialog = false
+            }
+        )
+    }
+
+    if (showImageAnnotationDialog) {
+        MedicalImageAnnotationDialog(
+            onDismiss = { showImageAnnotationDialog = false },
+            onInsertFigure = { figure ->
+                viewModel.insertAnnotatedFigureIntoEditor(figure)
+                showImageAnnotationDialog = false
+            }
+        )
+    }
+}
+
+// ----------------------------------------------------
+// Clinical Calculators Tab
+// ----------------------------------------------------
+@Composable
+fun CalculatorsTab(viewModel: DocuMedViewModel, onOpenFullCalculatorSuite: () -> Unit) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MedicalBluePrimary.copy(alpha = 0.08f)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, MedicalBluePrimary.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Interactive Clinical Scoring & Decision Engine", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MedicalBluePrimary)
+                    Text("Wells PE, CHA₂DS₂-VASc, CURB-65, GCS, MELD-Na, eGFR CKD-EPI with one-tap insertion into clinical notes", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onOpenFullCalculatorSuite,
+                    colors = ButtonDefaults.buttonColors(containerColor = MedicalBluePrimary),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Launch Suite", fontSize = 12.sp)
+                }
+            }
+        }
+
+        Text("Available Evidence-Based Calculators:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+        val calcSummaries = listOf(
+            Triple("Wells Criteria for PE", "Stratify pulmonary embolism probability into Low, Moderate, or High risk with D-dimer / CTPA guidance.", "Pulmonology / EM"),
+            Triple("CHA₂DS₂-VASc Score", "Assess annual ischemic stroke risk in Non-Valvular AF and determine DOAC anticoagulation indication.", "Cardiology"),
+            Triple("CURB-65 Pneumonia Severity", "Triage community-acquired pneumonia for outpatient vs inpatient vs ICU admission.", "Infectious Disease"),
+            Triple("Glasgow Coma Scale (GCS)", "Standardized 3-15 consciousness assessment for trauma, stroke, and ICU neuro checks.", "Neurology / Trauma"),
+            Triple("MELD-Na Liver Mortality", "Predict 90-day end-stage liver disease mortality and liver transplant prioritization.", "Gastroenterology"),
+            Triple("eGFR (CKD-EPI 2021)", "Race-free 2021 CKD-EPI equation for renal staging and medication dosage adjustment.", "Nephrology")
+        )
+
+        calcSummaries.forEach { (name, desc, tag) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenFullCalculatorSuite),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MedicalBluePrimary)
+                        Surface(shape = RoundedCornerShape(4.dp), color = MedicalBluePrimary.copy(alpha = 0.12f)) {
+                            Text(tag, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MedicalBluePrimary, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+                }
             }
         }
     }
 }
 
+// ----------------------------------------------------
+// Bedside Drug Formulary Tab
+// ----------------------------------------------------
 @Composable
-fun ScrollableTabRow(
-    selectedTabIndex: Int,
-    edgePadding: androidx.compose.ui.unit.Dp,
-    modifier: Modifier = Modifier,
-    tabs: @Composable () -> Unit
-) {
-    androidx.compose.material3.ScrollableTabRow(
-        selectedTabIndex = selectedTabIndex,
-        edgePadding = edgePadding,
-        modifier = modifier
+fun DrugFormularyTab(viewModel: DocuMedViewModel, onOpenFormularyDialog: () -> Unit) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        tabs()
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.08f)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF0F766E).copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Bedside Drug Formulary & Interaction Checker", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F766E))
+                    Text("Search clinical monographs, calculate pediatric weight doses, and check multi-drug interactions", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onOpenFormularyDialog,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Medication, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Open Formulary", fontSize = 12.sp)
+                }
+            }
+        }
+
+        Text("Formulary Core Modules:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+        val features = listOf(
+            Triple("Pharmacology Monographs", "Standard adult dosing, renal impairment clearance thresholds, hepatic safety, black box warnings, and contraindications.", "Monographs"),
+            Triple("Multi-Drug Interaction Checker", "Analyze drug combinations for CYP3A4, bleeding risk, QT prolongation, and pharmacodynamic antagonism with clinical mitigation steps.", "Safety Analyzer"),
+            Triple("Pediatric Weight-Based Dosing", "Weight-based mg/kg/dose calculator with max single-dose safety caps and age-appropriate frequency schedules.", "Pediatric Dosing")
+        )
+
+        features.forEach { (title, desc, tag) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenFormularyDialog),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F766E))
+                        Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF0F766E).copy(alpha = 0.12f)) {
+                            Text(tag, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F766E), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------
+// Patient Information Leaflet Tab
+// ----------------------------------------------------
+@Composable
+fun PatientLeafletsTab(
+    viewModel: DocuMedViewModel,
+    generatedLeaflet: com.example.data.model.PatientInformationLeaflet?,
+    isGenerating: Boolean,
+    onOpenLeafletDialog: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0284C7).copy(alpha = 0.08f)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF0284C7).copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Multi-Language Patient Leaflet Generator", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                    Text("Convert complex clinical jargon into patient discharge guides in English, Spanish, Hindi, French, Arabic, Chinese, German, and Portuguese", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onOpenLeafletDialog,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Open Generator", fontSize = 12.sp)
+                }
+            }
+        }
+
+        if (generatedLeaflet != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Active Generated Leaflet: ${generatedLeaflet.title}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                    Text("${generatedLeaflet.language.flagEmoji} ${generatedLeaflet.language.displayName} · ${generatedLeaflet.readingLevel.label}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(generatedLeaflet.conditionSummary, fontSize = 12.sp, maxLines = 3)
+                    Button(
+                        onClick = onOpenLeafletDialog,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text("View Full Leaflet & Print/Share", fontSize = 11.sp)
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text("Click 'Open Generator' to adapt any clinical summary or prescription note into clear, empathetic patient educational literature.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------
+// Radiology & Image Annotation Tab
+// ----------------------------------------------------
+@Composable
+fun RadiologyCanvasTab(viewModel: DocuMedViewModel, onOpenCanvas: () -> Unit) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.08f)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF1E293B).copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Radiology & Image Annotation Canvas", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                    Text("Draw lesion contours, drop numbered anatomical callouts, take caliper measurements, and create split-screen normal vs pathology comparisons", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onOpenCanvas,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Launch Canvas", fontSize = 12.sp)
+                }
+            }
+        }
+
+        Text("Supported Modalities & Features:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+        val features = listOf(
+            Triple("Anatomical Pin Drop", "Place numbered pins (1, 2, 3...) directly over organs or landmarks with customized clinical labels.", "Anatomy"),
+            Triple("Lesion Contour & Highlighting", "Draw freehand boundaries around tumors, consolidations, or fractures in red, yellow, and blue color codes.", "Pathology"),
+            Triple("Caliper Distance Measurement", "Measure lesion diameter, cardiothoracic ratio, or bone displacement in calibrated millimeters.", "Measurement"),
+            Triple("Split-Screen Comparison Mode", "Render side-by-side normal baseline vs active pathology figures with synchronized captions.", "Diagnostic Triage")
+        )
+
+        features.forEach { (title, desc, tag) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenCanvas),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                        Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF1E293B).copy(alpha = 0.12f)) {
+                            Text(tag, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+                }
+            }
+        }
     }
 }
 
@@ -671,6 +1070,7 @@ fun OsceTab(viewModel: DocuMedViewModel, osce: com.example.data.model.OsceStatio
 // ----------------------------------------------------
 @Composable
 fun FlashcardsTab(viewModel: DocuMedViewModel, flashcards: List<com.example.data.model.FlashcardItem>) {
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -690,7 +1090,13 @@ fun FlashcardsTab(viewModel: DocuMedViewModel, flashcards: List<com.example.data
             }
         }
 
-        FlashcardDeckView(flashcards = flashcards, modifier = Modifier.weight(1f))
+        FlashcardDeckView(
+            flashcards = flashcards,
+            modifier = Modifier.weight(1f),
+            onExportToAnki = {
+                viewModel.exportFlashcardsToAnki(context, "DocuMed Study Deck")
+            }
+        )
     }
 }
 
@@ -871,3 +1277,283 @@ fun ImageScanTab(viewModel: DocuMedViewModel, isGenerating: Boolean, analysisRes
         )
     }
 }
+
+// ----------------------------------------------------
+// Tab: AI PowerPoint & Slide Deck Generator
+// ----------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PowerPointDeckTab(
+    viewModel: DocuMedViewModel,
+    presentation: MedicalPresentation?,
+    isGenerating: Boolean,
+    onOpenDeckViewer: () -> Unit
+) {
+    val context = LocalContext.current
+    var audience by remember { mutableStateOf("Postgraduate Medical Residents & Fellows") }
+    var slideCount by remember { mutableIntStateOf(6) }
+    val scrollState = rememberScrollState()
+    var showSlideEditor by remember { mutableStateOf(false) }
+    var showSaveToHub by remember { mutableStateOf(false) }
+
+    val audienceOptions = listOf(
+        "Postgraduate Medical Residents & Fellows",
+        "Medical Students (Undergraduate)",
+        "Interdisciplinary Grand Rounds / Consultants",
+        "Patient Education & Nursing Staff"
+    )
+    var audienceExpanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF0284C7).copy(alpha = 0.15f),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Slideshow,
+                                contentDescription = null,
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "AI POWERPOINT & SLIDE DECK BUILDER",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                        )
+                        Text(
+                            text = "Transforms active medical document into presentation slides",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Target Audience
+                ExposedDropdownMenuBox(
+                    expanded = audienceExpanded,
+                    onExpandedChange = { audienceExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = audience,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Target Audience & Tone") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = audienceExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = audienceExpanded,
+                        onDismissRequest = { audienceExpanded = false }
+                    ) {
+                        audienceOptions.forEach { opt ->
+                            DropdownMenuItem(
+                                text = { Text(opt) },
+                                onClick = {
+                                    audience = opt
+                                    audienceExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Slide Count Selector
+                Column {
+                    Text(
+                        text = "Number of Slides: $slideCount slides",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(4, 6, 8, 10).forEach { count ->
+                            val isSelected = slideCount == count
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { slideCount = count },
+                                label = { Text("$count Slides") },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.generatePowerPointPresentation(
+                            audience = audience,
+                            slideCount = slideCount,
+                            onComplete = { onOpenDeckViewer() }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isGenerating,
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                ) {
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isGenerating) "Synthesizing Slides..." else "Generate AI Presentation Deck")
+                }
+            }
+        }
+
+        // Generated Presentation Preview Card
+        if (presentation != null && presentation.slides.isNotEmpty()) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "READY: ${presentation.title}",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                            )
+                            Text(
+                                text = "${presentation.slides.size} Slides • Presenter: ${presentation.presenter}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Slide 1 summary preview
+                    val firstSlide = presentation.slides.first()
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Slide 1: ${firstSlide.title}",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            firstSlide.bulletPoints.take(2).forEach { bp ->
+                                Text(
+                                    text = "• $bp",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onOpenDeckViewer,
+                            modifier = Modifier.weight(1f),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                        ) {
+                            Icon(imageVector = Icons.Default.Slideshow, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Launch Deck", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { showSlideEditor = true },
+                            modifier = Modifier.weight(1f),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C))
+                        ) {
+                            Icon(imageVector = Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Edit Slides", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                viewModel.saveCurrentPresentationToHub(presentation)
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Save to Files Hub", fontSize = 11.5.sp)
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val htmlFile = DocumentExportHelper.exportPresentationToHtmlFile(context, presentation)
+                                DocumentExportHelper.shareFileToGoogleDrive(context, htmlFile, "text/html", presentation.title)
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F9D58)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Google Drive", fontSize = 11.5.sp)
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                DocumentExportHelper.sharePresentation(context, presentation)
+                            },
+                            modifier = Modifier.weight(0.8f)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Share", fontSize = 11.5.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSlideEditor && presentation != null) {
+        com.example.ui.dialogs.SlideDeckEditorDialog(
+            initialPresentation = presentation,
+            onDismiss = { showSlideEditor = false },
+            onSaveDeck = { updated ->
+                viewModel.updateSlideDeck(updated)
+            },
+            onSaveToHub = { updated ->
+                viewModel.saveCurrentPresentationToHub(updated)
+                showSlideEditor = false
+            }
+        )
+    }
+}
+

@@ -14,6 +14,9 @@ interface DocumentDao {
     @Query("SELECT * FROM medical_documents ORDER BY updatedAt DESC")
     fun getAllDocuments(): Flow<List<MedicalDocument>>
 
+    @Query("SELECT * FROM medical_documents ORDER BY updatedAt DESC")
+    suspend fun getAllDocumentsOnce(): List<MedicalDocument>
+
     @Query("SELECT * FROM medical_documents WHERE id = :id LIMIT 1")
     fun getDocumentById(id: Long): Flow<MedicalDocument?>
 
