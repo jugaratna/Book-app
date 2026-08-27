@@ -18,6 +18,8 @@ data class PresentationSlide(
 @JsonClass(generateAdapter = true)
 data class MedicalPresentation(
     @Json(name = "title") val title: String = "",
+    @Json(name = "topic") val topic: String = "",
+    @Json(name = "totalSlides") val totalSlides: Int = 0,
     @Json(name = "presenter") val presenter: String = "",
     @Json(name = "audience") val audience: String = "",
     @Json(name = "slides") val slides: List<PresentationSlide> = emptyList(),

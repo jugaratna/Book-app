@@ -50,9 +50,13 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PresentationViewDialog(
-    presentation: MedicalPresentation,
-    onDismiss: () -> Unit
+    presentation: MedicalPresentation?,
+    isGenerating: Boolean = false,
+    onDismiss: () -> Unit,
+    onRegenerate: () -> Unit = {}
 ) {
+    if (presentation == null) return
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
