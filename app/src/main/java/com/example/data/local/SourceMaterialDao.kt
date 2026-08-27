@@ -26,6 +26,9 @@ interface SourceMaterialDao {
     @Delete
     suspend fun deleteSource(source: SourceMaterial)
 
+    @Query("SELECT * FROM source_materials")
+    suspend fun getAllSourcesOnce(): List<SourceMaterial>
+
     @Query("DELETE FROM source_materials WHERE id = :id")
     suspend fun deleteSourceById(id: Long)
 }
@@ -40,4 +43,7 @@ interface VersionDao {
 
     @Query("DELETE FROM document_versions WHERE documentId = :docId")
     suspend fun deleteVersionsForDocument(docId: Long)
+
+    @Query("SELECT * FROM document_versions")
+    suspend fun getAllVersionsOnce(): List<DocumentVersion>
 }
